@@ -1,0 +1,523 @@
+<!DOCTYPE HTML>
+<html>
+	<head>
+		<title>Christopher L. Porfolio</title>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+		<link rel="stylesheet" href="assets/css/main.css" />
+	</head>
+	<body class="is-preload">
+
+		<!-- Header -->
+			<section id="header">
+				<header>
+					<span class="image avatar"><img src="images/headshot.jpg" alt="" /></span>
+					<h1 id="logo"><a href="/index.html">Christopher Labra</a></h1>
+					<p>Undergraduate student at the University of North Texas</p>
+				</header>
+				<nav id="nav">
+					<ul>
+						<li><a href="#one" class="active">Introduction</a></li>
+						<li><a href="#two">Specifications</a></li>
+						<li><a href="#three">Implementation and Working</a></li>
+                        <li><a href="#four">Final Remarks</a></li>
+					</ul>
+				</nav>
+				<footer>
+
+                 <ul class="icons">
+						<li><a href="https://www.linkedin.com/in/chrislabra" class="icon fa-linkedin"><span class="label">Linkedin</span></a></li>
+						<li><a href="https://github.com/DALE5797" class="icon fa-github"><span class="label">Github</span></a></li>
+					</ul> 
+				</footer>
+			</section>
+
+		<!-- Wrapper -->
+			<div id="wrapper">
+
+				<!-- Main -->
+					<div id="main">
+
+						<!-- One -->
+							<section id="one">
+								<div class="image main" data-position="span">
+									<img src="images/DPphoto.jpg" alt="" />
+								</div>
+								<div class="container">
+									<header class="major">
+										<h3>Introduction</h3>										
+									</header>
+									<p>The goal of this project was program a server to host two clients using sockets. When one of the two clients meets certain requirements, the clients that met the requirement will act as a client-server and wait for the other client to connect to it. The client-server will then receive data from the other client and display the data to the terminal. This is all happening while the server-client remains connected to the main server.</p>
+                                    
+                                    <p>Everything in the project was written in C. The project was also done in collaboration with one other person.</p>
+								</div>
+							</section>
+
+						<!-- Two -->
+							<section id="two">
+								<div class="container">
+									<h3>Specifications</h3>
+									<p>The server will act as the main handler of the clients and the will keep a running total of the values sent in by the clients. The server should reset the totals any time a client disconnects or after the client-server routine. There can only be a maximum of two clients connected at any time with the server, meaning if a third client tries to connect the server should drop the connection.</p>
+                                    <p>The clients should send values to the server and receive the running total from the server after each value is sent. Once the clients total is in the range of 1,025 and 49,151 the client will execute its client-server routine. This routine is also ran on the server for the client that is enacting it. In this routine the client will use its total from the server as the port number and will wait for a connection. The client-server will remain connected to the main server throughout this whole process.</p>
+                                    <p>The client that did not reach the threshold will send in one more value to the main server. I will then proceed to receive its total, disconnect from the main server, connect to the client-server, send its total to the client-serve, disconnect from the client-server, and terminate the program. When the client-server receives the total from the other client it will print the total to the terminal, exit out of the client-server routine, and continue to function as a normal client to the main server.</p>
+								</div>
+							</section>
+
+						<!-- Three -->
+							<section id="three">
+								<div class="container">
+									<h3>Implementation and Working</h3>
+                                    <h4>Server Side</h4>
+									<p>In order to run the server a port number is needed. This is the first thing that is checked when the program begins. If the port number is not provided then the program will end and an error message will be displayed specifying what is needed. If there were no problems and the specified port is available to use then the server will set up using the bind and listen functions. The server will then wait for clients to connect. If a client connects to the server then a thread will be created in order to handle all of the request from the client. A confirmation statement would also be sent to the client to ensure that the connection was made.</p>
+
+										<pre><code>while((connfd = accept(sockfd, (struct sockaddr *)&cli_addr, &clilen)))
+{
+	if(connfd < 0) //error check to see if the connection went through
+	{
+		perror("Error connection"); //for testing only
+		exit(EXIT_FAILURE);
+	}
+
+	printf("Client Connection accepted\n");
+	noClients++; //increment number of clients
+
+	if(pthread_create(&thread_id, NULL, client_request, (void*) &connfd) < 0) //if there is an error
+	{
+		perror("Error creating thread");
+		exit(EXIT_FAILURE);
+	}
+}</code></pre>
+                                    
+                                    <p>The *client_request function is used to handle all of the clients request on that thread. The first operation of the function is to distinguish the two clients, meaning which one is Client A and which one is Client B. Client A will be the client that first one that evokes the *client_request function. To assign the titles the thread ID of the first client will be assigned to the global variable c1 in the IF statement below. This statement will not trigger more than once as long as there are two clients connected to the server. </p>
+                                    
+                                    <pre><code>
+if(x == 0)
+{
+	c1 = pthread_self();
+	x++;
+}</code></pre>
+                                    <p>In order for the server to know which client is being read and written to, the thread ID of each client is evaluated with the value in c1 and then assigned to the local variable client in their thread.</p>
+                                    
+                                    <pre><code>//2nd thread will be client 2
+client = (pthread_equal(c1, pthread_self())) ? 1 : 2;</code></pre>
+                                    
+                                    <p>In the case that a third client tries to connect to the server a message will be sent to that client and the server will disconnect them.</p>
+                                    
+                                    <pre><code>
+// disconnect third client
+if(noClients == 3)
+{
+	// write() client number exceeded -> disconnect to client
+	bzero(buffer, sizeof(buffer));
+	sprintf(buffer, "SERVER: Too Many Clients Connected. Disconnecting...\n");
+	if((n = write(sock, buffer, sizeof(buffer))) < 0)
+	{
+		perror("Error writing to socket");
+		exit(EXIT_FAILURE);
+	}
+
+	printf("Error: too many clients connected\n");
+		// one less client
+	noClients--;
+		//close socket and exit thread
+	close(sock);
+	pthread_exit(NULL);
+	return NULL;
+}</code></pre>
+                                    
+                                    <p>Now that the client are distinguished they can now send and receive data from the server. A while loop that is always true is used to keep this process going until the client disconnects from the server or the server terminates the thread. The server now writes to the client and waits for the client to send a value. When a value is received it is added to the local total in the thread, variable tot. The total is then printed on the server terminal and is also sent back to the client. If the value sent by the client is zero, it means the client wants to disconnect from the server. The server will then close the connection, terminate the thread, and reset the total for the client that disconnected.</p>
+
+                                    <pre><code>
+//disconnect if clients enters zero
+if(num == 0)
+{
+	// write() disconnect to client
+	bzero(buffer, sizeof(buffer));
+	sprintf(buffer, "Client %d Disconnecting...", client);
+	if((n = write(sock, buffer, sizeof(buffer))) < 0)
+	{
+		perror("Error writing to socket");
+		exit(EXIT_FAILURE);
+	}
+
+	printf("Client %d Disconnected, Total Reset\n", client);
+	//reset total
+	tot = 0;
+
+	//one less client 
+	noClients--;
+
+	//renew x value for next client to connect
+	x = (client == 1) ? 0 : 1;
+
+	//close socket and exit thread
+	close(sock);
+	pthread_exit(NULL);
+
+	return NULL;
+}
+</code></pre>
+                                    <p>The server then has to check if the total value is in between the range for the client-server routine or if the value exceeds the range. If the value exceeded the range then the server will send a message to the client and reset the total.</p>
+
+                                    <pre><code>else if(tot > 49151)
+{
+	bzero(buffer, sizeof(buffer));
+	sprintf(buffer, "SERVER Message: PORT %d exceeds max value of 49151, Reseting Total...", tot);
+	if((n = write(sock, buffer, sizeof(buffer))) < 0)
+	{
+		perror("Error writing to socket");
+		exit(EXIT_FAILURE);
+	}
+	tot = 0;
+}
+</code></pre>
+
+
+                                    <p>If, for example, Client A’s total is in range then the server will set up the process for implementing the client-server routine. The variable port2 will contain the total value of Client A, which will be used as the port number for the client-server. This value will also be sent to Client B the next time it send in a value. The total for Client A will then be cleared since the whole process will restart afterwards and the value is stored somewhere else already. The variable port receives the thread ID of Client A in order for the other Client B to trigger the next sequence of events.</p>
+                                    
+                                    <pre><code>if(tot > 1025 && tot < 49151)
+{
+	port2 = tot; //this is what we will send over to the connecting client
+	printf("Sending Client %d Port Data to Client %d, Reset Total\n", client, (client == 1) ? 2 : 1);
+	tot = 0;
+	port = client;
+}
+</code></pre>
+
+                                    <p>Client A will be now be executing its routine client side while maintaining connection to the server. Client B will now trigger an IF statement that will prepare it for connecting to Client A. The server will now send Client B a message to signify that the processes is starting, will send the port number to Client B, send the latest total, resets the values of the variables port and port2, and finally close the connection with Client B and terminates the thread.</p>
+                                    
+                                    <pre><code>if(port != client && port != 0)
+{
+	printf("Starting client-server process\n");
+
+	// just write() total to client
+bzero(buffer, sizeof(buffer));
+         sprintf(buffer, "%d", port2);
+         if((n = write(sock, buffer, sizeof(buffer))) < 0)
+         {
+                 	perror("Error writing to socket");
+          	exit(EXIT_FAILURE);
+         }
+
+	bzero(buffer, sizeof(buffer));
+	sprintf(buffer, "SERVER Message: PORT %d", port2);
+	if((n = write(sock, buffer, sizeof(buffer))) < 0)
+	{
+		perror("Error writing to socket");
+		exit(EXIT_FAILURE);
+	}
+
+	//send just the port number to the client
+	bzero(buffer, sizeof(buffer));
+	sprintf(buffer, "%d", port2);
+	if((n = write(sock, buffer, sizeof(buffer))) < 0)
+	{
+		perror("Error writing to socket");
+		exit(EXIT_FAILURE);
+	}
+
+	//send the last updated total
+	bzero(buffer, sizeof(buffer));
+         sprintf(buffer, "SERVER Total: %d", tot);
+         if((n = write(sock, buffer, sizeof(buffer))) < 0)
+         {
+         	perror("Error writing to socket");
+exit(EXIT_FAILURE);
+}
+
+	//send just the last updated total
+bzero(buffer, sizeof(buffer));
+sprintf(buffer, "%d", tot);
+if((n = write(sock, buffer, sizeof(buffer))) < 0)
+         {
+         	perror("Error writing to socket");
+                 exit(EXIT_FAILURE);
+}
+
+	//process to disconnect the client from server
+	printf("Disconnecting Client %d, Total Reset\n", client);
+	tot = 0;
+         //one less client
+         noClients--;
+         //renew x value for next client to connect
+         x = (client == 1) ? 0 : 1;
+	port = 0;
+	port2 = 0;
+         //close socket and exit thread
+         close(sock);
+         pthread_exit(NULL);
+         return NULL;
+}
+</code></pre>
+
+                                <p>Client A will return to its original functionality once it receives the data from Client B and terminates its connection. Client B will then be able to connect to the server again and the whole processes will begin again.</p>
+                                
+                                <h4>Client Side</h4>
+				
+                                <p>To begin, the client code will check that it has three arguments when running: the server host name, the port to be used, and the IP address of the other client. If it does not have these three things then the program will end and an error message will be displayed specifying what is needed. If there are no errors then the client will connect to the server. To send and receive data a while loop that is always true is used, but the loop is broken if the client ever needs to end connection with the server (more on that later). </p>
+                                <p>The first function in the while loop is a read operation for a message sent from the server. This message is important due the fact that it determines if the client should break from the loop or keep going. If the first few characters are equivalent to the string “SERVER: TOO” then the loop will be broken and the client will disconnect from the server. This means that there are more than two clients already connected to the server, so the connection had to be terminated.</p>
+                
+                                <pre><code>// read() prompt from server
+bzero(buffer, sizeof(buffer));
+if ((n = read(sockfd, buffer, sizeof(buffer))) < 0)
+{
+perror("Error reading from socket");
+exit(EXIT_FAILURE);
+}
+buffer[n] = '\0';
+
+// print prompt
+printf("%s", buffer);
+
+// Do we need to end this client?
+if(strncmp(buffer, "SERVER: Too", 11) == 0)
+{
+	break;
+}
+</code></pre>
+
+                                <p>If the client does not need to close connection with the server, then it will receive values from the standard input to send to the server. If the value inputted is zero then the client will break from the loop and end the program. The following statements are in place so the processes does not break the server.</p>
+                
+                
+                                <pre><code>// scan new number from keyboard, stdin
+bzero(buffer, sizeof(buffer));
+scanf("%s", buffer);
+
+if(strncmp(buffer, "0", 1) == 0)
+{
+// write() new number to server
+if((n = write(sockfd, buffer, sizeof(buffer))) < 0)
+{
+perror("Error writing to socket");
+exit(EXIT_FAILURE);
+}
+
+//just read total so we always have the prot number
+bzero(buffer, sizeof(buffer));
+if ((n = read(sockfd, buffer, sizeof(buffer))) < 0)
+{
+perror("Error reading from socket");
+exit(EXIT_FAILURE);
+}
+        	buffer[n] = '\0';
+
+bzero(buffer, sizeof(buffer));
+        	if ((n = read(sockfd, buffer, sizeof(buffer))) < 0)
+        	{
+            		perror("Error reading from socket");
+            		exit(EXIT_FAILURE);
+        	}
+        	buffer[n] = '\0';
+
+	break;
+}
+</code></pre>
+
+                                <p>Otherwise the client will send in values to the server and receive a total back from the server. This total is stored locally on the client in the case that it has to send its total to the client-server. The client will then check to see if it will have to be the client server. This is done by comparing the message from the server with the string “Server Total 0”, so if, for example, Client A receives this message then the client will set up a socket connection using the updated total as the port number. Client A will then wait for Client B to connect, receive the data from Client B, close the connection, and then return to its previous functionality.</p>
+                                
+                                <pre><code>//are you the client-server?
+if(strncmp(buffer, "SERVER Total: 0", 15) == 0)
+{
+printf("You are the Client-Server\n");
+
+if((sockfd2 = socket(AF_INET, SOCK_STREAM, 0)) == -1) //socket type and see if it worked
+{
+perror("Error socket open");
+exit(EXIT_FAILURE);
+}
+
+bzero((char *) &serv_addr2, sizeof(serv_addr2));
+
+serv_addr2.sin_family = AF_INET;
+serv_addr2.sin_addr.s_addr = htonl(INADDR_ANY);
+serv_addr2.sin_port = htons(portnum2);
+
+printf("port num: %d\n",portnum2);
+	int on = 1;
+setsockopt(sockfd2, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
+
+if(bind(sockfd2,(struct sockaddr *)&serv_addr2, sizeof(serv_addr2)) == -1) //bind and check$
+{
+perror("Error bind");
+exit(EXIT_FAILURE);
+}
+
+if(listen(sockfd2, 2) == -1) //listen and check if it worked
+{
+perror("Error listen");
+exit(EXIT_FAILURE);
+}
+
+printf("Waiting for connections...\n"); //for testing only
+clilen = sizeof(cli_addr);
+
+connfd = accept(sockfd2, (struct sockaddr *)&cli_addr, &clilen);
+if(connfd < 0) //error check to see if the connection went through
+{
+perror("Error connection"); //for testing only
+exit(EXIT_FAILURE);
+}
+
+printf("Client Connection accepted\n");
+bzero(buffer, sizeof(buffer));
+if ((n = read(connfd, buffer, sizeof(buffer))) < 0) //changed from sockfd3
+{
+perror("Error reading from socket");
+exit(EXIT_FAILURE);
+}
+
+printf("Other Clients total: %s\n", buffer);
+	printf("Disconnecting client and closing server...\n");
+
+close(connfd);
+close(sockfd2);
+
+sockfd2 = 0;
+connfd = 0;
+portnum2 = 0;
+printf("Returning to previous functionality...\n");
+}
+</code></pre>
+
+                                <p>The server then send a message to Client B the next time it sends in a value. This triggers an IF statement that will proceed to provide the necessary information to connect to Client A.</p>
+
+                                <pre><code>// if port message read updated total
+if(strncmp(buffer, "SERVER Message: ", 16) == 0) //operation for connecting the two clients
+{
+//getting the port number
+	bzero(buffer, sizeof(buffer));
+if ((n = read(sockfd, buffer, sizeof(buffer))) < 0)
+{
+perror("Error reading from socket");
+exit(EXIT_FAILURE);
+}
+
+buffer[n] = '\0';
+port = atoi(buffer);
+//		printf("%d\n", port); //print what is ports value
+
+//getting its last updated total message
+bzero(buffer, sizeof(buffer));
+if ((n = read(sockfd, buffer, sizeof(buffer))) < 0)
+{
+perror("Error reading from socket");
+exit(EXIT_FAILURE);
+}
+buffer[n] = '\0';
+printf("%s\n", buffer);
+
+//getting just its last total
+bzero(buffer, sizeof(buffer));
+if ((n = read(sockfd, buffer, sizeof(buffer))) < 0)
+{
+perror("Error reading from socket");
+exit(EXIT_FAILURE);
+}
+buffer[n] = '\0';
+mytotal = atoi(buffer);
+//		printf("my total: %d\n", mytotal); //see what the total is
+
+pro = 5;
+break;
+}
+</code></pre>
+
+                                <p>Client B will then break from the while loop, triggering a different loop soon after since its value for the variable pro is now equal to 5. In this loop Client B will connect to Client A, send its total, and proceed to disconnect and end the program.</p>
+                                
+                                <pre><code>if(pro == 5) //start the process of connecting to the client-server
+{
+//connect to client-server
+
+if ((sockfd3 = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+{
+perror("Error socket open");
+exit(EXIT_FAILURE);
+}
+
+serv_addr4.sin_family = AF_INET;
+serv_addr4.sin_addr.s_addr = inet_addr(argv[3]);
+len = sizeof(struct sockaddr_in);
+bzero(buffer2, sizeof(buffer2));
+
+if(getnameinfo((struct sockaddr *) &serv_addr4, len, buffer2, sizeof(buffer2), NULL, 0, NI_NAMEREQD))
+{
+printf("Error: could not get host name\n");
+exit(EXIT_FAILURE);
+}
+
+printf("host name: %s\n", buffer2);
+printf("port num: %d\n", port);
+
+if ((server2 = gethostbyname(buffer2)) == NULL)
+{
+printf("Error: no such host\n");
+exit(EXIT_FAILURE);
+}
+
+bzero((char *) &serv_addr3, sizeof(serv_addr3));
+
+serv_addr3.sin_family = AF_INET;
+inet_pton(AF_INET, argv[3], &serv_addr3.sin_addr.s_addr);
+serv_addr3.sin_port = htons(port);
+
+if (connect(sockfd3,(struct sockaddr *) &serv_addr3,sizeof(serv_addr3)) < 0)
+{
+perror("Error connecting");
+exit(EXIT_FAILURE);
+}
+
+printf("Connected to client-server\n");
+printf("Sending total...\n");
+
+bzero(buffer, sizeof(buffer));
+sprintf(buffer, "%d", mytotal);
+if((n = write(sockfd3, buffer, sizeof(buffer))) < 0)
+{
+perror("Error writing to socket");
+exit(EXIT_FAILURE);
+}
+
+printf("Total sent, disconnecting...\n");
+printf("Ending program\n");
+
+close(sockfd3);
+}
+</code></pre>
+
+								</div>
+							</section>
+
+						<!-- Four -->
+							<section id="four">
+								<div class="container">
+									<h3>Final Remarks</h3>
+                                    <p>For the most part the project was straight forward. Communication between the server and the clients are just read and write commands through a buffer, making sure there are the correct number of statements for each exchange so the program does not break. The difficulty lied in the server keeping track of the client totals separately and distinguishing between the two clients themselves. </p>
+                                    <p>An improvement on the design would be for the server to receive the IP addresses of the two clients when they connect, so it could then send them to the opposite clients when the client-server process begins. This will mitigate the need for the clients to provide the IP address of the client they are supposed to connect to. Another improvement would be to reorganize the send and reactive statements between the client and the server. This could lessen the amount of statements need and could keep the program going if a client abruptly disconnects from the server.</p>
+								</div>
+							</section>
+                        
+					</div>
+                
+
+				<!-- Footer -->
+					<section id="footer">
+						<div class="container">
+							<ul class="copyright">
+								<li>&copy; Untitled. All rights reserved.</li><li>Design: <a href="http://html5up.net">HTML5 UP</a></li>
+							</ul>
+						</div>
+					</section>
+
+			</div>
+
+		<!-- Scripts -->
+			<script src="assets/js/jquery.min.js"></script>
+			<script src="assets/js/jquery.scrollex.min.js"></script>
+			<script src="assets/js/jquery.scrolly.min.js"></script>
+			<script src="assets/js/browser.min.js"></script>
+			<script src="assets/js/breakpoints.min.js"></script>
+			<script src="assets/js/util.js"></script>
+			<script src="assets/js/main.js"></script>
+
+	</body>
+</html>
